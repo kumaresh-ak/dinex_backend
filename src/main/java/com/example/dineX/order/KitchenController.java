@@ -33,6 +33,6 @@ public class KitchenController {
     @PatchMapping("/{id}/status")
     public OrderView changeStatus(@AuthenticationPrincipal AuthUser user, @PathVariable Long id,
                                   @Valid @RequestBody StatusRequest request) {
-        return orderService.changeStatus(user.hotelId(), id, request.status());
+        return orderService.changeStatus(user.hotelId(), id, request.status(), true);
     }
 }

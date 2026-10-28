@@ -253,9 +253,12 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderView changeStatus(Long hotelId, Long orderId, FoodOrder.Status target) {
+    public OrderView changeStatus(Long hotelId, Long orderId, FoodOrder.Status target, boolean kitchen) {
         FoodOrder order = orders.findByIdAndHotelId(orderId, hotelId)
                 .orElseThrow(() -> ApiException.notFound("Order"));
+        if (kitchen && target == CANCELLED) {
+            throw ApiException.forbidden("Kitchen staff cannot cancel orders");
+        }
         if (!TRANSITIONS.get(order.getStatus()).contains(target)) {
             throw ApiException.conflict("Order cannot move from " + order.getStatus() + " to " + target);
         }
