@@ -17,7 +17,7 @@ public class RealtimeConfig implements WebSocketMessageBrokerConfigurer {
     private final JwtService jwtService;
     private final UserRepository users;
 
-    public RealtimeConfig(@Value("${app.cors.allowed-origins:http://localhost:4200}") String[] allowedOrigins,
+    public RealtimeConfig(@Value("${app.cors.allowed-origins:http://localhost:4200,https://dinexbeta.netlify.app}") String[] allowedOrigins,
                           JwtService jwtService, UserRepository users) {
         this.allowedOrigins = allowedOrigins;
         this.jwtService = jwtService;
