@@ -19,11 +19,7 @@ public class RealtimeConfig implements WebSocketMessageBrokerConfigurer {
     private final JwtService jwtService;
     private final UserRepository users;
 
-<<<<<<< HEAD
-    public RealtimeConfig(@Value("${app.cors.allowed-origins:http://localhost:4200,https://dinexbeta.netlify.app}") String[] allowedOrigins,
-=======
     public RealtimeConfig(@Value("${app.cors.allowed-origins:http://localhost:4200}") String configuredOrigins,
->>>>>>> afefc8534ab110fd5f642521f2002216ccd9892d
                           JwtService jwtService, UserRepository users) {
         // Split and trim explicitly: an untrimmed entry (for example " https://...") never matches the Origin header.
         Set<String> origins = new LinkedHashSet<>();
