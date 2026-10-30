@@ -2,6 +2,8 @@ package com.example.dineX.realtime;
 
 import com.example.dineX.security.JwtService;
 import com.example.dineX.user.UserRepository;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -17,9 +19,21 @@ public class RealtimeConfig implements WebSocketMessageBrokerConfigurer {
     private final JwtService jwtService;
     private final UserRepository users;
 
+<<<<<<< HEAD
     public RealtimeConfig(@Value("${app.cors.allowed-origins:http://localhost:4200,https://dinexbeta.netlify.app}") String[] allowedOrigins,
+=======
+    public RealtimeConfig(@Value("${app.cors.allowed-origins:http://localhost:4200}") String configuredOrigins,
+>>>>>>> afefc8534ab110fd5f642521f2002216ccd9892d
                           JwtService jwtService, UserRepository users) {
-        this.allowedOrigins = allowedOrigins;
+        // Split and trim explicitly: an untrimmed entry (for example " https://...") never matches the Origin header.
+        Set<String> origins = new LinkedHashSet<>();
+        for (String origin : (configuredOrigins + ",https://dinexbeta.netlify.app").split(",")) {
+            String trimmed = origin.trim();
+            if (!trimmed.isEmpty()) {
+                origins.add(trimmed);
+            }
+        }
+        this.allowedOrigins = origins.toArray(String[]::new);
         this.jwtService = jwtService;
         this.users = users;
     }

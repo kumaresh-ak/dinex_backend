@@ -3,6 +3,7 @@ package com.example.dineX.hotel;
 import com.example.dineX.audit.AuditService;
 import com.example.dineX.common.ApiException;
 import com.example.dineX.common.PageResponse;
+import com.example.dineX.security.TenantStatusCache;
 import com.example.dineX.security.UserRole;
 import com.example.dineX.storage.FileStorageService;
 import com.example.dineX.user.User;
@@ -22,14 +23,16 @@ public class HotelService {
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService storage;
     private final AuditService audit;
+    private final TenantStatusCache tenantStatus;
 
     public HotelService(HotelRepository hotels, UserRepository users, PasswordEncoder passwordEncoder,
-                        FileStorageService storage, AuditService audit) {
+                        FileStorageService storage, AuditService audit, TenantStatusCache tenantStatus) {
         this.hotels = hotels;
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.storage = storage;
         this.audit = audit;
+        this.tenantStatus = tenantStatus;
     }
 
     @Transactional
@@ -103,6 +106,7 @@ public class HotelService {
         Hotel hotel = find(id);
         hotel.setEnabled(enabled);
         hotels.save(hotel);
+        tenantStatus.evict(id);
         audit.record(id, enabled ? "HOTEL_ENABLED" : "HOTEL_DISABLED", "Hotel", id, null);
         return view(hotel);
     }
@@ -118,6 +122,7 @@ public class HotelService {
             user.setDeletedFlag(true);
             users.save(user);
         }
+        tenantStatus.evict(id);
         audit.record(id, "HOTEL_DELETED", "Hotel", id, null);
     }
 

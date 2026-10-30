@@ -51,9 +51,7 @@ public class NotificationService {
 
     @Transactional
     public void markAllRead(Long hotelId) {
-        for (Notification notification : notifications.findByHotelIdAndReadFlagFalse(hotelId)) {
-            notification.setReadFlag(true);
-        }
+        notifications.markAllReadByHotelId(hotelId);
     }
 
     static View view(Notification n) {

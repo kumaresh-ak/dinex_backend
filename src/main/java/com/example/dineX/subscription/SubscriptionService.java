@@ -4,6 +4,7 @@ import com.example.dineX.audit.AuditService;
 import com.example.dineX.common.ApiException;
 import com.example.dineX.hotel.Hotel;
 import com.example.dineX.hotel.HotelRepository;
+import com.example.dineX.security.TenantStatusCache;
 import com.example.dineX.settings.PlatformSettingsService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -26,14 +27,17 @@ public class SubscriptionService {
     private final HotelRepository hotels;
     private final AuditService audit;
     private final PlatformSettingsService settings;
+    private final TenantStatusCache tenantStatus;
 
     public SubscriptionService(SubscriptionPlanRepository plans, HotelSubscriptionRepository subscriptions,
-                               HotelRepository hotels, AuditService audit, PlatformSettingsService settings) {
+                               HotelRepository hotels, AuditService audit, PlatformSettingsService settings,
+                               TenantStatusCache tenantStatus) {
         this.plans = plans;
         this.subscriptions = subscriptions;
         this.hotels = hotels;
         this.audit = audit;
         this.settings = settings;
+        this.tenantStatus = tenantStatus;
     }
 
     public record PlanView(Long id, String planCode, String planName, BigDecimal price, int durationMonths) { }
@@ -133,6 +137,7 @@ public class SubscriptionService {
         Hotel hotel = hotels.findById(request.getHotelId()).orElseThrow(() -> ApiException.notFound("Hotel"));
         hotel.setSubscriptionStatus(Hotel.SubscriptionStatus.ACTIVE);
         hotels.save(hotel);
+        tenantStatus.evict(hotel.getId());
         audit.record(hotel.getId(), "SUBSCRIPTION_APPROVED", "HotelSubscription", id, plan.getPlanCode());
         return view(request, planMap(), hotelNames(List.of(hotel.getId())));
     }
@@ -164,6 +169,7 @@ public class SubscriptionService {
                 audit.record(hotel.getId(), "SUBSCRIPTION_EXPIRED", "Hotel", hotel.getId(), null);
             }
         }
+        tenantStatus.evictAll();
     }
 
     private HotelSubscription find(Long id) {
