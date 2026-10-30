@@ -132,7 +132,7 @@ public class OrderService {
 
     @Transactional
     public SessionStart startSession(String qrToken) {
-        DiningTable table = tableByQr(qrToken);
+        DiningTable table = tables.lockByQrToken(qrToken).orElseThrow(() -> ApiException.notFound("Table"));
         enabledHotel(table.getHotelId());
         DiningSession session = sessions
                 .findFirstByTableIdAndStatusNotOrderByIdDesc(table.getId(), DiningSession.Status.CLOSED)
@@ -230,7 +230,7 @@ public class OrderService {
 
         OrderView view = toViews(List.of(order)).get(0);
         notifications.create(hotel.getId(), "New order " + order.getOrderNumber(),
-                tableNumber(session) + " placed " + lines.size() + " item line(s)");
+                tableLabel(session) + " placed " + lines.size() + " item line(s)");
         realtime.publish(hotel.getId(), session.getSessionToken(), "ORDER_PLACED", view);
         return view;
     }
@@ -241,7 +241,7 @@ public class OrderService {
         if (session.getStatus() == DiningSession.Status.CLOSED) {
             throw ApiException.conflict("This session has been closed");
         }
-        notifications.create(session.getHotelId(), "Assistance requested", tableNumber(session) + " needs assistance");
+        notifications.create(session.getHotelId(), "Assistance requested",  tableLabel(session) + " needs assistance");
     }
 
     // ----- Hotel and kitchen -----
@@ -272,13 +272,24 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<SessionSummary> activeSessions(Long hotelId) {
-        return sessions.findByHotelIdAndStatusNotOrderByIdDesc(hotelId, DiningSession.Status.CLOSED).stream()
+        List<DiningSession> open = sessions.findByHotelIdAndStatusNotOrderByIdDesc(hotelId, DiningSession.Status.CLOSED);
+        if (open.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> sessionIds = open.stream().map(DiningSession::getId).collect(Collectors.toSet());
+        Map<Long, List<FoodOrder>> ordersBySession = orders.findBySessionIdInOrderByIdAsc(sessionIds).stream()
+                .collect(Collectors.groupingBy(FoodOrder::getSessionId));
+        Set<Long> tableIds = open.stream().map(DiningSession::getTableId).collect(Collectors.toSet());
+        Map<Long, String> tableNumbers = tables.findAllById(tableIds).stream()
+                .collect(Collectors.toMap(DiningTable::getId, DiningTable::getTableNumber));
+        return open.stream()
                 .map(s -> {
-                    List<FoodOrder> rows = orders.findBySessionIdOrderByIdAsc(s.getId());
+                    List<FoodOrder> rows = ordersBySession.getOrDefault(s.getId(), List.of());
                     Totals totals = totals(rows);
                     int count = (int) rows.stream().filter(o -> o.getStatus() != CANCELLED).count();
                     return new SessionSummary(s.getId(), s.getSessionToken(), s.getSessionNumber(), s.getStatus().name(),
-                            tableNumber(s), s.getCustomerName(), count, totals.grandTotal(), s.getOpenedAt());
+                            tableNumbers.get(s.getTableId()), s.getCustomerName(), count, totals.grandTotal(),
+                            s.getOpenedAt());
                 })
                 .toList();
     }
@@ -352,6 +363,16 @@ public class OrderService {
 
     public String tableNumber(DiningSession session) {
         return tables.findById(session.getTableId()).map(DiningTable::getTableNumber).orElse(null);
+    }
+
+    /** Human-readable table name for hotel notifications; the stored number may already read "Table 4". */
+    private String tableLabel(DiningSession session) {
+        String number = tableNumber(session);
+        if (number == null || number.isBlank()) {
+            return "A guest";
+        }
+        String trimmed = number.trim();
+        return trimmed.regionMatches(true, 0, "Table", 0, 5) ? trimmed : "Table " + trimmed;
     }
 
     public Hotel enabledHotel(Long hotelId) {

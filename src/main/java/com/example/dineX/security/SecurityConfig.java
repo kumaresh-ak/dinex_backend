@@ -32,7 +32,8 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService, UserRepository users,
-                                            HotelRepository hotels, SubscriptionService subscriptions) throws Exception {
+                                            HotelRepository hotels, SubscriptionService subscriptions,
+                                            TenantStatusCache tenantStatus) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
@@ -56,7 +57,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .addFilterBefore(new RateLimitFilter(), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new JwtAuthenticationFilter(jwtService, users), UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(new TenantAccessFilter(hotels, subscriptions), JwtAuthenticationFilter.class)
+                .addFilterAfter(new TenantAccessFilter(hotels, subscriptions, tenantStatus), JwtAuthenticationFilter.class)
                 .build();
     }
 

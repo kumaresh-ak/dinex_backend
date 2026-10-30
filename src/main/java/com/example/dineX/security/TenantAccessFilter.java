@@ -18,10 +18,12 @@ public class TenantAccessFilter extends OncePerRequestFilter {
 
     private final HotelRepository hotels;
     private final SubscriptionService subscriptions;
+    private final TenantStatusCache tenantStatus;
 
-    public TenantAccessFilter(HotelRepository hotels, SubscriptionService subscriptions) {
+    public TenantAccessFilter(HotelRepository hotels, SubscriptionService subscriptions, TenantStatusCache tenantStatus) {
         this.hotels = hotels;
         this.subscriptions = subscriptions;
+        this.tenantStatus = tenantStatus;
     }
 
     @Override
@@ -31,17 +33,22 @@ public class TenantAccessFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         if (authentication != null && authentication.getPrincipal() instanceof AuthUser user
                 && user.hotelId() != null && !user.isSuperAdmin() && isTenantPath(path) && !isExempt(path)) {
-            Hotel hotel = hotels.findByIdAndDeletedFlagFalse(user.hotelId()).orElse(null);
-            if (hotel == null || !hotel.isEnabled()) {
+            TenantStatusCache.Status status = tenantStatus.get(user.hotelId(), this::load);
+            if (!status.enabled()) {
                 write(response, 403, "HOTEL_DISABLED", "This hotel account is disabled");
                 return;
             }
-            if (!subscriptions.hasActiveSubscription(hotel.getId())) {
+            if (!status.subscribed()) {
                 write(response, 402, "SUBSCRIPTION_REQUIRED", "An active subscription is required to continue");
                 return;
             }
         }
         chain.doFilter(request, response);
+    }
+
+    private TenantStatusCache.Status load(Long hotelId) {
+        boolean enabled = hotels.findByIdAndDeletedFlagFalse(hotelId).map(Hotel::isEnabled).orElse(false);
+        return new TenantStatusCache.Status(enabled, enabled && subscriptions.hasActiveSubscription(hotelId));
     }
 
     private boolean isTenantPath(String path) {

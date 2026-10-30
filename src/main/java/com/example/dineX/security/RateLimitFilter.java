@@ -47,6 +47,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/v1/auth/reset-password")) {
             return MAX_REQUESTS_PER_MINUTE_AUTH;
         }
+        if (path.startsWith("/api/v1/public/files/")) {
+            return 0;
+        }
         if (path.startsWith("/api/v1/public/")) {
             return MAX_REQUESTS_PER_MINUTE_PUBLIC;
         }
